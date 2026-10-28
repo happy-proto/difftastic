@@ -3,6 +3,166 @@ use std::process::Command;
 use assert_cmd::prelude::*;
 use predicates::prelude::*;
 
+#[test]
+fn library_json_matches_cli() {
+    let mut engine = difftastic::JsonDiff::from_env().unwrap();
+    for (display, lhs, rhs) in [
+        (
+            "sample.js",
+            "sample_files/simple_1.js",
+            "sample_files/simple_2.js",
+        ),
+        (
+            "sample.txt",
+            "sample_files/simple_1.txt",
+            "sample_files/simple_2.txt",
+        ),
+        (
+            "same.js",
+            "sample_files/simple_1.js",
+            "sample_files/simple_1.js",
+        ),
+    ] {
+        engine.set_binary_attributes(std::collections::HashMap::from([(
+            display.to_owned(),
+            false,
+        )]));
+        let library = engine
+            .diff_slices(
+                display,
+                std::path::Path::new(lhs),
+                std::path::Path::new(rhs),
+                &std::fs::read(lhs).unwrap(),
+                &std::fs::read(rhs).unwrap(),
+            )
+            .unwrap();
+        let output = get_base_command()
+            .env("DFT_UNSTABLE", "yes")
+            .env("DFT_EXIT_CODE", "false")
+            .env("DFT_CHECK_ONLY", "false")
+            .args([
+                "--display=json",
+                "--color=never",
+                "--",
+                display,
+                lhs,
+                "0",
+                "100644",
+                rhs,
+                "0",
+                "100644",
+            ])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&library).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap(),
+            "{display}"
+        );
+    }
+}
+
+#[test]
+fn library_bytes_use_metadata_paths_and_replace_attributes() {
+    let path = std::path::Path::new("library-test-does-not-create/example.rs");
+    assert!(!path.exists());
+    let mut engine = difftastic::JsonDiff::from_env().unwrap();
+    let compare = |engine: &difftastic::JsonDiff| -> serde_json::Value {
+        serde_json::from_slice(
+            &engine
+                .diff_slices(
+                    "example.rs",
+                    path,
+                    path,
+                    b"fn value() -> i32 { 1 }\n",
+                    b"fn value() -> i32 { 2 }\n",
+                )
+                .unwrap(),
+        )
+        .unwrap()
+    };
+    engine.set_binary_attributes(std::collections::HashMap::from([(
+        "example.rs".to_owned(),
+        true,
+    )]));
+    assert_eq!(compare(&engine)["language"], "Binary");
+    engine.set_binary_attributes(std::collections::HashMap::from([(
+        "example.rs".to_owned(),
+        false,
+    )]));
+    let expected = compare(&engine);
+    assert_eq!(expected["language"], "Rust");
+    assert_eq!(expected["status"], "changed");
+    assert!(!path.exists());
+    // 同一个只读配置可以从多个线程调用，不共享逐文件解析状态。
+    std::thread::scope(|scope| {
+        for _ in 0..4 {
+            scope.spawn(|| assert_eq!(compare(&engine), expected));
+        }
+    });
+}
+
+#[test]
+fn library_encodings_and_empty_sides_match_cli() {
+    let cases: &[(&str, &[u8], &[u8])] = &[
+        (
+            "sample.rs",
+            b"fn main() { let x = 1; }\n",
+            b"fn main() { let x = 2; }\n",
+        ),
+        ("sample.json", b"{\"x\":1}\n", b"{\"x\":2,\"y\":true}\n"),
+        ("plain.txt", b"before", b"after"),
+        ("added.rs", b"", b"fn added() {}\n"),
+        ("removed.rs", b"fn removed() {}\n", b""),
+        ("same.rs", b"fn same() {}\n", b"fn same() {}\n"),
+        ("binary.bin", b"\0\x01\x02", b"\0\x02\x03"),
+        ("latin.txt", b"caf\xe9 before\n", b"caf\xe9 after\n"),
+        ("utf16.txt", b"\xff\xfea\0\n\0", b"\xff\xfeb\0\n\0"),
+        ("invalid.rs", b"fn { broken\n", b"fn { changed\n"),
+    ];
+    let temp = tempfile::tempdir().unwrap();
+    let old = temp.path().join("old");
+    let new = temp.path().join("new");
+    let mut engine = difftastic::JsonDiff::from_env().unwrap();
+    for &(display, lhs, rhs) in cases {
+        std::fs::write(&old, lhs).unwrap();
+        std::fs::write(&new, rhs).unwrap();
+        engine.set_binary_attributes(std::collections::HashMap::from([(
+            display.to_owned(),
+            false,
+        )]));
+        let bytes = engine.diff_slices(display, &old, &new, lhs, rhs).unwrap();
+        let files = engine.diff_files(display, &old, &new).unwrap();
+        assert_eq!(bytes, files);
+        let output = get_base_command()
+            .env("DFT_UNSTABLE", "yes")
+            .env("DFT_EXIT_CODE", "false")
+            .env("DFT_CHECK_ONLY", "false")
+            .args(["--display=json", "--color=never", "--", display])
+            .arg(&old)
+            .args(["0", "100644"])
+            .arg(&new)
+            .args(["0", "100644"])
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+        assert_eq!(
+            serde_json::from_slice::<serde_json::Value>(&bytes).unwrap(),
+            serde_json::from_slice::<serde_json::Value>(&output.stdout).unwrap(),
+            "{display}"
+        );
+    }
+}
+
 fn find_runner() -> Option<String> {
     for (key, value) in std::env::vars() {
         if key.starts_with("CARGO_TARGET_") && key.ends_with("_RUNNER") && !value.is_empty() {

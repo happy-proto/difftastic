@@ -313,6 +313,10 @@ pub(crate) fn print(diff: &DiffResult) {
     )
 }
 
+pub(crate) fn to_vec(diff: &DiffResult) -> Result<Vec<u8>, serde_json::Error> {
+    serde_json::to_vec(&File::from(diff))
+}
+
 fn add_changes_to_side<'s>(
     side: &mut Side<'s>,
     line_num: LineNumber,

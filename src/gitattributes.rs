@@ -3,7 +3,7 @@ use std::process::Command;
 
 /// The result of checking file's `diff` and `binary` attributes with `git check-attr`.
 /// See man gitattributes, specifically **Generating diff text** section.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub(crate) enum DiffAttribute {
     /// The file type (text vs binary) will be autodetected.
     ///
@@ -168,4 +168,58 @@ mod tests {
             Some(DiffAttribute::AssumeBinary)
         );
     }
+}
+
+/// 一次原生 Git 调用查询本轮所有路径；查询失败时沿用 CLI 的尽力而为行为。
+/// 调用者每次加载替换缓存，不跨加载复用 attributes。
+pub(crate) fn check_diff_attrs(
+    paths: &[String],
+) -> std::collections::HashMap<String, Option<DiffAttribute>> {
+    use std::io::Write;
+    use std::process::Stdio;
+    let mut result = paths
+        .iter()
+        .map(|p| (p.clone(), None))
+        .collect::<std::collections::HashMap<_, _>>();
+    if paths.is_empty() {
+        return result;
+    }
+    let run = || -> std::io::Result<std::process::Output> {
+        let mut child = Command::new("git")
+            .args(["check-attr", "--stdin", "-z", "diff", "binary"])
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()?;
+        let mut input = child.stdin.take().expect("piped stdin");
+        std::thread::scope(|scope| {
+            let writer = scope.spawn(move || -> std::io::Result<()> {
+                for path in paths {
+                    input.write_all(path.as_bytes())?;
+                    input.write_all(&[0])?;
+                }
+                Ok(())
+            });
+            let output = child.wait_with_output();
+            writer.join().expect("attribute input writer panicked")?;
+            output
+        })
+    };
+    let Ok(output) = run() else {
+        return result;
+    };
+    if !output.status.success() {
+        return result;
+    }
+    let fields = output.stdout.split(|b| *b == 0).collect::<Vec<_>>();
+    let mut offset = 0;
+    for group in fields.chunks_exact(6) {
+        let len = group.iter().map(|f| f.len() + 1).sum::<usize>();
+        if group[0] == group[3] {
+            let path = String::from_utf8_lossy(group[0]).into_owned();
+            result.insert(path, parse_output(&output.stdout[offset..offset + len]));
+        }
+        offset += len;
+    }
+    result
 }
