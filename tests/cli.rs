@@ -68,6 +68,38 @@ fn library_json_matches_cli() {
 }
 
 #[test]
+fn library_invalid_config_returns_errors_without_exiting() {
+    const CHILD: &str = "DIFFTASTIC_TEST_CONFIG_ERROR_CHILD";
+    if std::env::var_os(CHILD).is_some() {
+        assert!(difftastic::JsonDiff::from_env().is_err());
+        return;
+    }
+    // 使用独立子进程验证，避免原 CLI 的 exit 路径终止整个测试进程。
+    for (name, value) in [
+        ("DFT_OVERRIDE_1", "missing-colon"),
+        ("DFT_OVERRIDE_1", "*.rs:no-such-language"),
+        ("DFT_OVERRIDE_1", "[:Rust"),
+        ("DFT_OVERRIDE_BINARY_1", "["),
+    ] {
+        let output = Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "library_invalid_config_returns_errors_without_exiting",
+                "--nocapture",
+            ])
+            .env(CHILD, "1")
+            .env(name, value)
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "{name}={value}: {}",
+            String::from_utf8_lossy(&output.stderr)
+        );
+    }
+}
+
+#[test]
 fn library_bytes_use_metadata_paths_and_replace_attributes() {
     let path = std::path::Path::new("library-test-does-not-create/example.rs");
     assert!(!path.exists());

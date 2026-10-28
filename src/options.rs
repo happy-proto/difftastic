@@ -648,9 +648,11 @@ fn build_display_path(lhs_path: &FileArgument, rhs_path: &FileArgument) -> Strin
     }
 }
 
-fn parse_overrides_or_die(raw_overrides: &[String]) -> Vec<(LanguageOverride, Vec<glob::Pattern>)> {
+fn parse_overrides(
+    raw_overrides: &[String],
+) -> Result<Vec<(LanguageOverride, Vec<glob::Pattern>)>, clap::Error> {
     let mut overrides: Vec<(LanguageOverride, Vec<glob::Pattern>)> = vec![];
-    let mut invalid_syntax = false;
+    let mut errors = Vec::new();
 
     for raw_override in raw_overrides {
         if let Some((glob_str, lang_name)) = raw_override.rsplit_once(':') {
@@ -659,26 +661,26 @@ fn parse_overrides_or_die(raw_overrides: &[String]) -> Vec<(LanguageOverride, Ve
                     if let Some(language_override) = language_override_from_name(lang_name) {
                         overrides.push((language_override, vec![pattern]));
                     } else {
-                        eprintln!("No such language '{}'", lang_name);
-                        eprintln!("See --list-languages for the names of all languages available. Language overrides are case insensitive.");
-                        invalid_syntax = true;
+                        errors.push(format!("No such language '{}'\nSee --list-languages for the names of all languages available. Language overrides are case insensitive.", lang_name));
                     }
                 }
                 Err(e) => {
-                    eprintln!("Invalid glob syntax '{}'", glob_str);
-                    eprintln!("Glob parsing error: {}", e.msg);
-                    invalid_syntax = true;
+                    errors.push(format!(
+                        "Invalid glob syntax '{}'\nGlob parsing error: {}",
+                        glob_str, e.msg
+                    ));
                 }
             }
         } else {
-            eprintln!("Invalid language override syntax '{}'", raw_override);
-            eprintln!("Language overrides are in the format 'GLOB:LANG_NAME', e.g. '*.js:JSON'.");
-            invalid_syntax = true;
+            errors.push(format!("Invalid language override syntax '{}'\nLanguage overrides are in the format 'GLOB:LANG_NAME', e.g. '*.js:JSON'.", raw_override));
         }
     }
 
-    if invalid_syntax {
-        std::process::exit(EXIT_BAD_ARGUMENTS);
+    if !errors.is_empty() {
+        return Err(clap::Error::raw(
+            clap::error::ErrorKind::ValueValidation,
+            errors.join("\n"),
+        ));
     }
 
     let mut combined_overrides: Vec<(LanguageOverride, Vec<glob::Pattern>)> = vec![];
@@ -694,12 +696,12 @@ fn parse_overrides_or_die(raw_overrides: &[String]) -> Vec<(LanguageOverride, Ve
         }
     }
 
-    combined_overrides
+    Ok(combined_overrides)
 }
 
-fn parse_binary_overrides_or_die(glob_strs: &[String]) -> Vec<glob::Pattern> {
+fn parse_binary_overrides(glob_strs: &[String]) -> Result<Vec<glob::Pattern>, clap::Error> {
     let mut overrides: Vec<glob::Pattern> = vec![];
-    let mut invalid_syntax = false;
+    let mut errors = Vec::new();
 
     for glob_str in glob_strs {
         match glob::Pattern::new(glob_str) {
@@ -707,24 +709,28 @@ fn parse_binary_overrides_or_die(glob_strs: &[String]) -> Vec<glob::Pattern> {
                 overrides.push(pattern);
             }
             Err(e) => {
-                eprintln!("Invalid glob syntax '{}'", glob_str);
-                eprintln!("Glob parsing error: {}", e.msg);
-                invalid_syntax = true;
+                errors.push(format!(
+                    "Invalid glob syntax '{}'\nGlob parsing error: {}",
+                    glob_str, e.msg
+                ));
             }
         }
     }
 
-    if invalid_syntax {
-        std::process::exit(EXIT_BAD_ARGUMENTS);
+    if !errors.is_empty() {
+        return Err(clap::Error::raw(
+            clap::error::ErrorKind::ValueValidation,
+            errors.join("\n"),
+        ));
     }
 
-    overrides
+    Ok(overrides)
 }
 
 /// Parse CLI arguments passed to the binary.
 pub(crate) fn parse_args() -> Mode {
     let matches = app().get_matches();
-    parse_matches(matches)
+    parse_matches(matches).unwrap_or_else(|error| error.exit())
 }
 
 pub(crate) fn parse_library_args() -> Result<Mode, clap::Error> {
@@ -744,10 +750,10 @@ pub(crate) fn parse_library_args() -> Result<Mode, clap::Error> {
         "0",
         "000000",
     ])?;
-    Ok(parse_matches(matches))
+    parse_matches(matches)
 }
 
-fn parse_matches(matches: clap::ArgMatches) -> Mode {
+fn parse_matches(matches: clap::ArgMatches) -> Result<Mode, clap::Error> {
     let color_output = match matches
         .get_one::<String>("color")
         .map(|s| s.as_str())
@@ -774,7 +780,7 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
         }
     }
 
-    let binary_overrides = parse_binary_overrides_or_die(&raw_binary_overrides);
+    let binary_overrides = parse_binary_overrides(&raw_binary_overrides)?;
 
     let mut raw_overrides: Vec<String> = vec![];
     if let Some(overrides) = matches.get_many("override") {
@@ -786,36 +792,36 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
         }
     }
 
-    let language_overrides = parse_overrides_or_die(&raw_overrides);
+    let language_overrides = parse_overrides(&raw_overrides)?;
 
     if matches.get_flag("list-languages") {
-        return Mode::ListLanguages {
+        return Ok(Mode::ListLanguages {
             use_color,
             language_overrides,
-        };
+        });
     }
 
     if let Some(path) = matches.get_one::<String>("dump-syntax") {
-        return Mode::DumpSyntax {
+        return Ok(Mode::DumpSyntax {
             path: path.to_owned(),
             ignore_comments,
             language_overrides,
-        };
+        });
     }
 
     if let Some(path) = matches.get_one::<String>("dump-syntax-dot") {
-        return Mode::DumpSyntaxDot {
+        return Ok(Mode::DumpSyntaxDot {
             path: path.to_owned(),
             ignore_comments,
             language_overrides,
-        };
+        });
     }
 
     if let Some(path) = matches.get_one::<String>("dump-ts") {
-        return Mode::DumpTreeSitter {
+        return Ok(Mode::DumpTreeSitter {
             path: path.to_owned(),
             language_overrides,
-        };
+        });
     }
 
     let terminal_width = if let Some(arg_width) = matches.get_one::<usize>("width") {
@@ -916,9 +922,9 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
             || env::var_os("GIT_CONFIG_PARAMETERS").is_some()
             || env::var_os("GIT_DIFF_PATH_TOTAL").is_some())
     {
-        return Mode::GitHasUnmergedFile {
+        return Ok(Mode::GitHasUnmergedFile {
             display_path: args[0].to_string_lossy().to_string(),
-        };
+        });
     }
 
     // Print git environment variables so we can see the additional
@@ -994,7 +1000,7 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
 
             let display_path = path.to_string_lossy().to_string();
             let path = FileArgument::from_path_argument(path);
-            return Mode::DiffFromConflicts {
+            return Ok(Mode::DiffFromConflicts {
                 display_path,
                 path,
                 diff_options,
@@ -1002,7 +1008,7 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
                 set_exit_code,
                 language_overrides,
                 binary_overrides,
-            };
+            });
         }
         _ => {
             if !args.is_empty() {
@@ -1045,7 +1051,7 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
         sort_paths,
     };
 
-    Mode::Diff {
+    Ok(Mode::Diff {
         diff_options,
         display_options,
         set_exit_code,
@@ -1057,7 +1063,7 @@ fn parse_matches(matches: clap::ArgMatches) -> Mode {
         rhs_permissions,
         display_path,
         renamed,
-    }
+    })
 }
 
 /// Try to work out the width of the terminal we're on, or fall back
