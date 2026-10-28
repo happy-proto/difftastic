@@ -8,4 +8,6 @@
 
 只保留测试工作流，移除官方发行包、crates.io 发布、手册部署和 Codecov 上传流程。维护中不自动安装或替换本机 CLI；GitHub Actions 的启用状态与源码验证分别验收。
 
+测试平台对应 sidediff 的 Linux x64、macOS Apple Silicon、Windows x64 和 Windows ARM64，保留原有样本输出、MIME、打包等验证；不沿用额外的 cross 构建矩阵。同分支新提交取消过时验证。
+
 消费端 `Cargo.toml` 只声明 Git 地址，具体提交由 `Cargo.lock` 管理。更新本 fork 不会自动改变消费端已锁定的提交，需要单独更新并验证消费端。
