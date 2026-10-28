@@ -30,6 +30,22 @@ impl TreeSitterParser {
             build.flag("/utf-8");
         }
         build.include(&dir).warnings(false); // ignore unused parameter warnings
+
+        // 避免宿主携带同一语言的另一版 parser 时混用 scanner 或重复导出。
+        let symbol = self.name.replace('-', "_");
+        for suffix in [
+            "",
+            "_external_scanner_create",
+            "_external_scanner_destroy",
+            "_external_scanner_reset",
+            "_external_scanner_scan",
+            "_external_scanner_serialize",
+            "_external_scanner_deserialize",
+        ] {
+            let original = format!("{symbol}{suffix}");
+            let namespaced = format!("difftastic_{original}");
+            build.define(&original, namespaced.as_str());
+        }
         for file in c_files {
             build.file(dir.join(file));
         }

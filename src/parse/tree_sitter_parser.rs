@@ -86,9 +86,13 @@ pub(crate) struct TreeSitterConfig {
 type TreeSitterNodeName = &'static str;
 
 extern "C" {
+    #[link_name = "difftastic_tree_sitter_janet_simple"]
     fn tree_sitter_janet_simple() -> ts::Language;
+    #[link_name = "difftastic_tree_sitter_kotlin"]
     fn tree_sitter_kotlin() -> ts::Language;
+    #[link_name = "difftastic_tree_sitter_latex"]
     fn tree_sitter_latex() -> ts::Language;
+    #[link_name = "difftastic_tree_sitter_smali"]
     fn tree_sitter_smali() -> ts::Language;
 }
 

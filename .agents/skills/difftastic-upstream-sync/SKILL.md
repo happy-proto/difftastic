@@ -25,7 +25,7 @@ git rebase --onto <new-upstream-commit> <old-upstream-commit>
 逐项阅读编号改造记录，以净 diff 和回归行为决定如何处理冲突，不机械选择 ours/theirs。无冲突也要检查遗漏和重复。
 
 - **库接入**：保留字节入口、CLI 共用算法、配置读取、attributes 注入／批量查询和 JSON 对齐行为，继续避免逐文件启动 Git。性能测量默认关闭。
-- **原生依赖**：核对 tree-sitter 与 sidediff/kat 的 `links` 兼容性、解析器 API 和 MSRV。修改依赖与锁文件使用 Cargo，不顺带升级无关依赖。
+- **原生依赖**：核对 tree-sitter 与 sidediff/kat 的 `links` 兼容性、解析器 API 和 MSRV。自带 parser 的入口和 scanner 需保留 `difftastic_` 符号前缀；新加或更换 parser 时核对宿主是否有同名导出，并运行 `parser_symbols` 回归及 sidediff 的 Linux 链接检查。修改依赖与锁文件使用 Cargo，不顺带升级无关依赖。
 - **维护边界**：保留中文 fork 定位、许可证、改造记录和本 skill；不要恢复上游的官方发布、站点部署或 Codecov 上传流程。
 
 检查新上游是否已经提供适用的库接口。验证其字节输入、attributes、配置和 JSON 能否替代现有接入；上游吸收同一目的时移除重复补丁，保留原编号并记录吸收版本。不能仅因出现 `lib.rs` 就宣布可以退役 fork。
