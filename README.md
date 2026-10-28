@@ -1,203 +1,54 @@
-<p align="center">
-  <a href="#readme"><img src="img/logo.png" alt="it's difftastic!"/></a>
-  <br>
-  <a href="https://difftastic.wilfred.me.uk/introduction.html"><img src="https://img.shields.io/badge/manual-en-brightgreen?style=plastic" alt="English manual"></a>
-  <a href="https://difftastic.wilfred.me.uk/zh-CN/"><img src="https://img.shields.io/badge/manual-zh--CN-brightgreen?style=plastic" alt="Chinese manual"></a>
-  <a href="https://crates.io/crates/difftastic"><img src="https://img.shields.io/crates/v/difftastic.svg?style=plastic" alt="crates.io"></a>
-  <a href="https://codecov.io/gh/Wilfred/difftastic"><img src="https://img.shields.io/codecov/c/github/Wilfred/difftastic?style=plastic&token=dZzAZtQT2S" alt="codecov.io"></a>
-</p>
+# difftastic：sidediff 内部库 fork
 
-Difftastic is a structural diff tool that compares files based on
-their syntax.
+这是 [Wilfred/difftastic](https://github.com/Wilfred/difftastic) 的长期维护 fork，专供 [happy-proto/sidediff](https://github.com/happy-proto/sidediff) 在进程内调用语法差异计算。
 
-**For installation instructions, see
-[Installation](https://difftastic.wilfred.me.uk/installation.html) in
-[the manual](https://difftastic.wilfred.me.uk/).**
+在上游提供满足需求的库接口之前，我们临时维护这层适配，减少逐文件启动 `difft`、查询 Git attributes 和物化临时文件的开销。差异算法沿用上游，保留 `difft` CLI；这个接口服务于 sidediff，不承诺作为通用 Rust 库的兼容性。
 
-## Examples
+当前以 **0.71.0** 为上游基线，精确记录见 [upstream.json](scripts/fork/upstream.json)。需要 **Rust 1.90 或更新版本**。本 fork 通过 Git 依赖使用，不发布到 crates.io，也不提供独立的 CLI 发行包。
 
-![Screenshot of difftastic and Rust](img/wrap_expr.png)
+## 在 sidediff 中使用
 
-^ Difftastic understands exactly which pieces of syntax have changed,
-and can highlight them in context.
-
-![Screenshot of difftastic and HTML](img/html.png)
-
-^ Difftastic understands when whitespace matters, and when it's just
-an indentation change.
-
-![Screenshot of difftastic and JS](img/reformat.png)
-
-^ Difftastic is not line-oriented. If you reformat your code and it's
-now split over multiple lines, difftastic will show you what's
-actually changed.
-
-![Screenshot of difftastic and git](img/git.png)
-
-^ Difftastic is compatible with git (see [the configuration
-instructions](https://difftastic.wilfred.me.uk/git.html)), as well as
-many other version control systems.
-
-## Languages Supported
-
-Difftastic supports over 30 programming languages, see [the
-manual](https://difftastic.wilfred.me.uk/languages_supported.html) for the full list.
-
-If a file has an unrecognised extension, difftastic uses a
-line-oriented diff with word highlighting.
-
-## Known Issues
-
-Performance. Difftastic scales relatively poorly on files with a large
-number of changes, and can use a lot of memory.
-
-Display. Difftastic has a side-by-side display which usually works well, but can
-be confusing.
-
-Robustness. Difftastic regularly has releases that fix crashes.
-
-## Non-goals
-
-Patching. Difftastic output is intended for human consumption, and it
-does not generate patches that you can apply later. Use `diff` if you
-need a patch.
-
-(Patch files are also line-oriented, which is too limited for
-difftastic. Difftastic might find additions and removals on the same
-line, and it tracks the relationship between line numbers in the old
-and new file.)
-
-Merging. AST merging is a hard problem that difftastic does not
-address. You might be interested in the [mergiraf
-tool](https://mergiraf.org/) ("merge giraffe"), which does do AST
-merging.
-
-## FAQ
-
-### Can I use difftastic with git?
-
-You can! The difftastic manual [includes instructions for git
-usage](https://difftastic.wilfred.me.uk/git.html). You can also use it
-[with mercurial](https://difftastic.wilfred.me.uk/mercurial.html).
-
-If you're an Emacs user, check out [this blog
-post](https://tsdh.org/posts/2022-08-01-difftastic-diffing-with-magit.html)
-showing one way to use difftastic with magit, as well as
-[difftastic.el](https://github.com/pkryger/difftastic.el).
-
-### Does difftastic integrate with my favourite tool?
-
-Probably not. Difftastic is young. Consider writing a plugin for your
-favourite tool, and I will link it in the README!
-
-### What about parse errors?
-
-By default, difftastic falls back to a line-oriented diff whenever
-parse errors are encountered.
-
-This is a conservative choice to ensure that difftastic never claims
-that two syntactically different files are the same.
-
-Parse errors can occur if the file uses language features that the
-parser does not understand, if the language relies on a preprocessor
-before parsing (e.g. C++), or if the file has genuine syntactic
-mistakes.
-
-In practice, difftastic virtually always produces a good result when
-there are a few minor parse errors. Consider allowing a small number
-of parse errors when using difftastic.
-
-```
-$ export DFT_PARSE_ERROR_LIMIT=20
-$ difft foo1.c foo2.c
+```toml
+[dependencies]
+difftastic = { git = "https://github.com/happy-proto/difftastic.git" }
 ```
 
-### Can difftastic help me with merge conflicts?
+具体提交由消费端的 `Cargo.lock` 锁定，manifest 不设置 `version`、`rev`、`tag` 或 `branch`。更新 fork 后，由消费端运行 `cargo update -p difftastic` 并验证。
 
-Yes! As of version 0.50 (released 2023-08-16), difftastic understands merge conflict markers
-(i.e. `<<<<<<<`, `=======` and `>>>>>>>`).
+`JsonDiff` 提供三种接入能力：
 
-Pass your file with conflicts as a single argument to
-difftastic. Difftastic will construct the two conflicting files and
-diff those.
+- `from_env()` 读取一次 `DFT_*` 配置；库接口固定输出 JSON，执行完整差异计算。
+- `set_binary_attributes()` 接收调用者查询的 Git attributes，避免逐文件启动 Git；也保留 `prefetch_attributes()` 批量查询接口。
+- `diff_slices()` 比较调用者提供的字节，路径仅用于语言识别等元数据；另有 `diff_files()` 文件入口。
 
-```
-$ difft file_with_conflicts.js
-```
+```rust
+use std::{collections::HashMap, path::Path};
 
-### Can difftastic do merges?
-
-No. AST merging is a hard problem that difftastic does not address.
-
-AST diffing is a lossy process from the perspective of a text
-diff. Difftastic will ignore whitespace that isn't syntactically
-significant, but merging requires tracking whitespace.
-
-The [mergiraf](https://mergiraf.org/) tool does offer merges based on
-a tree-sitter AST however.
-
-### Can difftastic ignore reordering?
-
-No. Difftastic always considers order to be important, so diffing
-e.g. `set(1, 2)` and `set(2, 1)` will show changes.
-
-If you're diffing JSON, consider sorting the keys before passing them
-to difftastic.
-
-```
-$ difft <(jq --sort-keys < file_1.json) <(jq --sort-keys < file_2.json)
+let mut engine = difftastic::JsonDiff::from_env()?;
+engine.set_binary_attributes(HashMap::from([("example.rs".to_owned(), false)]));
+let json = engine.diff_slices(
+    "example.rs",
+    Path::new("old/example.rs"),
+    Path::new("new/example.rs"),
+    b"fn value() -> i32 { 1 }\n",
+    b"fn value() -> i32 { 2 }\n",
+)?;
+# Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
 ```
 
-See also [Tricky Cases: Unordered Data
-Types](https://difftastic.wilfred.me.uk/tricky_cases.html#unordered-data-types)
-in the manual.
+调用者应提供本次加载所有路径的 attributes；缺少路径时，仍会回退到原生 Git 查询。`diff_slices()` 不读取或写入传入路径，但算法仍会创建字符串、语法树和 JSON；输入大小、并发、结果保留和内存预算由 sidediff 控制。继承的 jemalloc 全局分配器及其他接入约束见 [库适配记录](docs/fork-changes/0001-library-api.md)。
 
-### Can I use difftastic to check for syntactic changes without diffing?
+## 开发与同步上游
 
-Yes. Difftastic can check if the two files have the same AST, without
-calculating a diff. This is much faster than normal diffing, and
-useful for building tools that check for changes.
-
-For example:
-
-```
-$ difft --check-only --exit-code before.js after.js
+```sh
+cargo fmt --all -- --check
+cargo test --locked
 ```
 
-This will set the exit code to 0 if there are no syntactic changes, or
-1 if there are changes found.
+维护主分支为 `main`；`origin` 指向本 fork，`upstream` 指向 Wilfred/difftastic。自有改动见 [编号改造记录](docs/fork-changes/README.md)，同步上游使用仓库内的 [difftastic-upstream-sync skill](.agents/skills/difftastic-upstream-sync/SKILL.md)。
 
-### Why aren't colours appearing in my terminal?
+上游的功能说明、CLI 安装和用户手册见 [官方手册](https://difftastic.wilfred.me.uk/)。本仓库保留上游的测试和源码归属；不启用上游的站点部署、官方发行包或 crates.io 发布流程。
 
-Difftastic uses ANSI bright colours by default, but some terminal
-themes show bright colours as grey. Solarized is a popular theme that
-does this.
+## 许可证与归属
 
-If you're a Solarized user, use `export DFT_BACKGROUND=light` to
-disable bright colours, or try a different terminal colour scheme.
-
-### How does it work?
-
-Difftastic treats structural diffing as a graph problem, and uses
-Dijkstra's algorithm.
-
-My [blog
-post](https://www.wilfred.me.uk/blog/2022/09/06/difftastic-the-fantastic-diff/)
-describes the design, and there is also an [internals section in the
-manual](https://difftastic.wilfred.me.uk/diffing.html).
-
-## Translation
-
-+ [Chinese](./translation/zh-CN/README-zh-CN.md)
-
-## License
-
-Difftastic is open source under the MIT license, see LICENSE for more
-details.
-
-This repository also includes tree-sitter parsers by other authors in
-the `vendored_parsers/` directory. These are a mix of the MIT license and the
-Apache license. See `vendored_parsers/*/LICENSE` for more details.
-
-Files in `sample_files/` are also under the MIT license unless stated
-otherwise in their headers.
+原项目由 Wilfred Hughes 等贡献者维护，主体遵循 [MIT License](LICENSE)。`vendored_parsers/` 中的解析器各自遵循其目录下的许可证；样本文件的授权说明保留在原文件中。这个 fork 不是上游的官方 Rust 库发行版。
