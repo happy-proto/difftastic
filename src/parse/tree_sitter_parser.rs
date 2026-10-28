@@ -1112,6 +1112,12 @@ fn build_config(language: guess::Language) -> TreeSitterConfig {
         Solidity => {
             let language_fn = tree_sitter_solidity::LANGUAGE;
             let language = tree_sitter::Language::new(language_fn);
+            // 0.27 拒绝分组末尾的锚点；沿用上游待合并修复，保留类型捕获。
+            // https://github.com/JoranHonig/tree-sitter-solidity/pull/80
+            let highlight_query = tree_sitter_solidity::HIGHLIGHT_QUERY.replace(
+                "(struct_expression type: ((expression(identifier)) @type .))",
+                "(struct_expression type: (expression (identifier)) @type)",
+            );
             TreeSitterConfig {
                 language: language.clone(),
                 atom_nodes: ["string", "hex_string_literal", "unicode_string_literal"]
@@ -1119,8 +1125,7 @@ fn build_config(language: guess::Language) -> TreeSitterConfig {
                     .collect(),
                 delimiter_tokens: vec![("[", "]"), ("(", ")"), ("{", "}")],
                 ignore_trailing_tokens: vec![],
-                highlight_query: ts::Query::new(&language, tree_sitter_solidity::HIGHLIGHT_QUERY)
-                    .unwrap(),
+                highlight_query: ts::Query::new(&language, &highlight_query).unwrap(),
                 sub_languages: vec![],
             }
         }
@@ -1439,7 +1444,7 @@ fn tree_highlights(
     let mut type_ids = DftHashSet::default();
 
     while let Some(m) = q_matches.next() {
-        for c in m.captures {
+        for c in m.captures() {
             if comment_capture_ids.contains(&c.index) {
                 comment_ids.insert(c.node.id());
             } else if keyword_ish_capture_ids.contains(&c.index) {
