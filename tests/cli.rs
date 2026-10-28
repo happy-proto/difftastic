@@ -121,7 +121,11 @@ fn library_encodings_and_empty_sides_match_cli() {
         ("removed.rs", b"fn removed() {}\n", b""),
         ("same.rs", b"fn same() {}\n", b"fn same() {}\n"),
         ("binary.bin", b"\0\x01\x02", b"\0\x02\x03"),
-        ("latin.txt", b"caf\xe9 before\n", b"caf\xe9 after\n"),
+        (
+            "latin.txt",
+            b"\xe9\xe9\xe9 before\n",
+            b"\xe9\xe9\xe9 after\n",
+        ),
         ("utf16.txt", b"\xff\xfea\0\n\0", b"\xff\xfeb\0\n\0"),
         ("invalid.rs", b"fn { broken\n", b"fn { changed\n"),
     ];
