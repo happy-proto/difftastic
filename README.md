@@ -4,7 +4,9 @@
 
 在上游提供满足需求的库接口之前，我们临时维护这层适配，减少逐文件启动 `difft`、查询 Git attributes 和物化临时文件的开销。差异算法沿用上游，保留 `difft` CLI；这个接口服务于 sidediff，不承诺作为通用 Rust 库的兼容性。
 
-当前以 **0.71.0** 为上游基线，精确记录见 [upstream.json](scripts/fork/upstream.json)。需要 **Rust 1.90 或更新版本**。本 fork 通过 Git 依赖使用，不发布到 crates.io，也不提供独立的 CLI 发行包。
+当前跟随上游 **master 的最新提交**，每轮同步固定精确 SHA，记录见 [upstream.json](scripts/fork/upstream.json)，不等待稳定版发布。需要 **Rust 1.90 或更新版本**。本 fork 通过 Git 依赖使用，不发布到 crates.io，也不提供独立的 CLI 发行包。
+
+语法支持随上游主线变化：当前上游已移除 Smali、F# 和 Verilog 的结构化差异支持，这些文件回退到行级 diff；Kotlin 使用上游新的 parser。
 
 ## 在 sidediff 中使用
 

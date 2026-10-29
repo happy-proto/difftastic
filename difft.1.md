@@ -26,7 +26,7 @@ their syntax, not line-by-line. Difftastic produces accurate diffs
 that are easier for humans to read.
 
 OPTIONS
--------
+=======
 
 **\-\-background** _BACKGROUND_
 
@@ -45,7 +45,7 @@ OPTIONS
 
 : When to use color output.
 
-**\-\-context** _LINES_
+**-c, \-\-context** _LINES_
 
 : The number of contextual lines to show around changed lines.
 
@@ -150,7 +150,7 @@ OPTIONS
   detect the terminal width.
 
 DEBUG OPTIONS
--------------
+=============
 
 **\-\-dump-syntax** _PATH_
 

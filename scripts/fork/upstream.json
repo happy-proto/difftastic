@@ -1,5 +1,5 @@
 {
   "repository": "https://github.com/Wilfred/difftastic.git",
-  "tag": "0.71.0",
-  "commit": "b7d119e90ac9f972f03f69508da765dacd302c0c"
+  "ref": "refs/heads/master",
+  "commit": "0b92338c6042152b1fc91c30ed01cf0449070844"
 }

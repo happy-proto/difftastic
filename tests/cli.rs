@@ -148,6 +148,18 @@ fn library_encodings_and_empty_sides_match_cli() {
             b"fn main() { let x = 2; }\n",
         ),
         ("sample.json", b"{\"x\":1}\n", b"{\"x\":2,\"y\":true}\n"),
+        ("sample.kt", b"fun value() = 1\n", b"fun value() = 2\n"),
+        ("sample.fs", b"let value = 1\n", b"let value = 2\n"),
+        (
+            "sample.smali",
+            b".class public Old\n",
+            b".class public New\n",
+        ),
+        (
+            "sample.sv",
+            b"module old; endmodule\n",
+            b"module new; endmodule\n",
+        ),
         ("plain.txt", b"before", b"after"),
         ("added.rs", b"", b"fn added() {}\n"),
         ("removed.rs", b"fn removed() {}\n", b""),
@@ -246,6 +258,23 @@ fn inline() {
 }
 
 #[test]
+fn inline_unchanged_lines_between_changes() {
+    let mut cmd = get_base_command();
+
+    cmd.arg("--display=inline")
+        .arg("sample_files/cli_tests/gitconfig_1.gitconfig")
+        .arg("sample_files/cli_tests/gitconfig_2.gitconfig");
+
+    let url_rx = r#"(?m)^\s*7\s+\[url "ssh://git@github\.com"\]$"#;
+    let url_lines = predicate::str::is_match(url_rx).unwrap().count(2);
+
+    let blank_rx = r"(?m)^\s*6\s*$";
+    let blank_lines = predicate::str::is_match(blank_rx).unwrap().count(2);
+
+    cmd.assert().stdout(url_lines.and(blank_lines));
+}
+
+#[test]
 fn binary_changed() {
     let mut cmd = get_base_command();
 
@@ -331,6 +360,19 @@ fn text_changes_at_end_doesnt_crash() {
         .arg("sample_files/cli_tests/changes_at_end_2.txt");
 
     cmd.assert().success();
+}
+
+/// Regression test for https://github.com/Wilfred/difftastic/issues/995.
+#[test]
+fn out_of_order_hunk_doesnt_crash() {
+    let mut cmd = get_base_command();
+
+    cmd.arg("--color=never")
+        .arg("sample_files/cli_tests/out_of_order_hunk_1.py")
+        .arg("sample_files/cli_tests/out_of_order_hunk_2.py");
+
+    let predicate_fn = predicate::str::contains("preset_services={");
+    cmd.assert().success().stdout(predicate_fn);
 }
 
 #[test]

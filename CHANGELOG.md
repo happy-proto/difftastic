@@ -1,4 +1,36 @@
-## 0.71 (unreleased)
+## 0.72 (unreleased)
+
+### Diffing
+
+Improved preprocessing heuristics, so difftastic should be faster and
+fall back to text diffing less often.
+
+### Parsing
+
+Updated Haskell (the previous version was prone to crashing) and
+Kotlin parsers.
+
+Improved Elixir, Erlang, Gleam, Java, JavaScript, Kotlin, Haskell,
+Nix, OCaml, Python and TypeScript delimiter handling.
+
+Improved trailing punctuation handling in C, C++, C#, Go and YAML.
+
+Removed Smali support (upstream parser is no longer maintained).
+
+Removed support for Verilog and F# due to the very large parser size
+making the binary big. Adding support for dynamically loading parsers
+in a future release should allow users to parse these languages again.
+
+### Display
+
+Fixed an issue with inline display where unchanged lines between two
+nearby changes were not shown.
+
+Fixed an issue (introduced in 0.71) where the terminal width wasn't
+detected when stdin, stdout and stderr were all redirected. This was
+most noticeable when using difft with jj.
+
+## 0.71 (released 18th September 2026)
 
 ### Diffing
 

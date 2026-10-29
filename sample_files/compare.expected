@@ -53,7 +53,7 @@ sample_files/contiguous_1.js sample_files/contiguous_2.js
 7ac6081dee02e3529a88defca194bc00  -
 
 sample_files/css_1.css sample_files/css_2.css
-43a2bbc8dc2f4b4733ecb5a888d10dfc  -
+6d53cbb5dc5d66adfad2d8d67c883178  -
 
 sample_files/dart_1.dart sample_files/dart_2.dart
 2cacc19ded574d97416eed1a3da513e6  -
@@ -76,11 +76,11 @@ sample_files/elm_1.elm sample_files/elm_2.elm
 sample_files/erlang_1.erl sample_files/erlang_2.erl
 77c259baf4751716db4da1503088e742  -
 
-sample_files/f_sharp_1.fs sample_files/f_sharp_2.fs
-63defe290bfc6754b51457a6c374838b  -
-
 sample_files/fish_1.fish sample_files/fish_2.fish
 707c9e00520b380813342c33a9d0f2d3  -
+
+sample_files/flat_1.json sample_files/flat_2.json
+ecb26164a87695dfd5489cd9ffbd3670  -
 
 sample_files/fortran_1.f90 sample_files/fortran_2.f90
 94351de50c5e6eae2ce5f165e83d93da  -
@@ -89,13 +89,10 @@ sample_files/hack_1.php sample_files/hack_2.php
 fd23895fca3cb3e70b5ffd364f8c30fe  -
 
 sample_files/haskell_1.hs sample_files/haskell_2.hs
-3cace65f14319c339fcbd30e8e9ebdcc  -
+b9335a75cc420c8ac1d298b15be18b93  -
 
 sample_files/hcl_1.hcl sample_files/hcl_2.hcl
 b4de7a8269018e05c0eba247d8097111  -
-
-sample_files/hello_world_1.smali sample_files/hello_world_2.smali
-4a754c9c7d84d5fd4e3fbb16f060afbb  -
 
 sample_files/helpful_1.el sample_files/helpful_2.el
 a26c7b0e3758b387237d9932002211f8  -
@@ -173,7 +170,7 @@ sample_files/multiline_string_eof_1.yml sample_files/multiline_string_eof_2.yml
 4d80f5907b7f360999ec51a70818fd97  -
 
 sample_files/nest_1.rs sample_files/nest_2.rs
-9d808755cff9af64cdc861bbef966cb4  -
+a20c96a800b3c8d4c1c8081af8b59bae  -
 
 sample_files/nested_slider_1.el sample_files/nested_slider_2.el
 2a4e41f16b7ce9cb6692ef72754b9076  -
@@ -303,9 +300,6 @@ ae41c3f5aa1ba13c2a424d3afa7ece6c  -
 
 sample_files/utf16_1.py sample_files/utf16_2.py
 bd9a1d79fd78185c94ce89ea7d4ac581  -
-
-sample_files/verilog_1.sv sample_files/verilog_2.sv
-0fbb9bd8ff99b8ee852741860d2c25d0  -
 
 sample_files/vhdl_1.vhd sample_files/vhdl_2.vhd
 267dcc013be29dd84728870fadfe9504  -
